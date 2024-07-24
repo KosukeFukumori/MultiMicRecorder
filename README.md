@@ -32,10 +32,10 @@ pip install -r requirements.txt
 ### 設定方法
 1. [Black Hole](https://existential.audio/blackhole/) をインストールします。
 2. `Audio MIDI 設定` アプリを開き、`複合出力装置`を作成します。出力先は、`Black Hole` と Web会議視聴用の`ヘッドフォン`です。
+    ![MIDI Setting](/assets/midi_setting.png)
 3. Web会議アプリの音声設定を以下のようにします：
     - 音声出力 = `複合出力装置` （上述のMIDIで設定したもの）
     - 音声入力 = `Macbook 内蔵マイク`
-    ![MIDI Setting](/assets/midi_setting.png)
 4. システム音声設定を以下のようにします：
     - 音声出力 = `ヘッドフォン`（複合出力以外なら何でもいいですが、使いたいデバイスにしておくと音量調整しやすです）
     - 音声入力 = 何でもいいです
