@@ -4,11 +4,12 @@ import queue
 import threading
 import time
 import tkinter
+import tkinter as tk
 import wave
 from dataclasses import dataclass
 from time import sleep
 from tkinter import StringVar, Text, Tk
-from tkinter.ttk import Button, Combobox
+from tkinter.ttk import Button, Combobox, LabelFrame
 
 import numpy as np
 import sounddevice as sd
@@ -86,6 +87,8 @@ class SingleMicRecorder:
 
     @staticmethod
     def get_mic_device_list() -> list[MicDevice]:
+        sd._terminate()
+        sd._initialize()
         devices = sd.query_devices()
         mic_devices: list[SingleMicRecorder.MicDevice] = []
         if not isinstance(devices, sd.DeviceList):
@@ -114,27 +117,41 @@ class GUI:
         root = Tk()
         root.title("録音アプリ")
 
+        # デバイス1選択コンボボックス前のラベル
+        device1_label = tk.Label(root, text="録音デバイス 1")
+        device1_label.grid(row=0, column=0, padx=8, pady=8)
+
+        # デバイス1選択コンボボックス
+        self._device1_list_combobox_value = StringVar()
+        self._device1_list_combobox = Combobox(
+            root,
+            textvariable=self._device1_list_combobox_value,
+            state="readonly",
+        )
+        self._device1_list_combobox.grid(row=0, column=1, sticky=tk.EW, padx=8, pady=8)
+
+        # デバイス2選択コンボボックス前のラベル
+        device2_label = tk.Label(root, text="録音デバイス 2")
+        device2_label.grid(row=1, column=0, padx=8)
+
+        # デバイス2選択コンボボックス
+        self._device2_list_combobox_value = StringVar()
+        self._device2_list_combobox = Combobox(
+            root,
+            textvariable=self._device2_list_combobox_value,
+            state="readonly",
+        )
+        self._device2_list_combobox.grid(row=1, column=1, sticky=tk.EW, padx=8)
+
         # デバイスリスト更新ボタン
         self._device_refresh_button = Button(
             root,
             text="デバイスリスト更新",
             command=self._on_device_refresh_button_click,
         )
-        self._device_refresh_button.pack()
-
-        # デバイス1選択コンボボックス
-        self._device1_list_combobox_value = StringVar(root)
-        self._device1_list_combobox = Combobox(
-            root, textvariable=self._device1_list_combobox_value
+        self._device_refresh_button.grid(
+            row=2, column=0, columnspan=2, sticky=tk.E, padx=8
         )
-        self._device1_list_combobox.pack()
-
-        # デバイス2選択コンボボックス
-        self._device2_list_combobox_value = StringVar(root)
-        self._device2_list_combobox = Combobox(
-            root, textvariable=self._device2_list_combobox_value
-        )
-        self._device2_list_combobox.pack()
 
         # 録音開始ボタン
         self._start_stop_button = Button(
@@ -142,11 +159,22 @@ class GUI:
             text="録音開始",
             command=self._on_start_recording_button_click,
         )
-        self._start_stop_button.pack()
+        self._start_stop_button.grid(row=3, column=0, columnspan=2)
 
         # ログ表示テキストボックス
         self.log_text_box = Text(state=tkinter.DISABLED)
-        self.log_text_box.pack()
+        self.log_text_box.grid(
+            row=4,
+            column=0,
+            columnspan=2,
+            sticky=tk.NSEW,
+            padx=8,
+            pady=8,
+        )
+
+        # ウィンドウのリサイズに合わせて index のウィジェットの幅を広げる
+        root.grid_columnconfigure(index=1, weight=1)
+        root.grid_rowconfigure(index=4, weight=1)
 
         # デバイスリストを更新
         self._on_device_refresh_button_click()
@@ -180,6 +208,7 @@ class GUI:
         # デバイス選択を変更できないようにする
         self._device1_list_combobox.configure(state=tkinter.DISABLED)
         self._device2_list_combobox.configure(state=tkinter.DISABLED)
+        self._device_refresh_button.configure(state=tkinter.DISABLED)
 
         # デバイス情報を取得
         devices = SingleMicRecorder.get_mic_device_list()
@@ -258,6 +287,7 @@ class GUI:
         # デバイス選択を変更できるようにする
         self._device1_list_combobox.configure(state=tkinter.NORMAL)
         self._device2_list_combobox.configure(state=tkinter.NORMAL)
+        self._device_refresh_button.configure(state=tkinter.NORMAL)
 
         self._start_stop_button.configure(
             text="録音開始",
