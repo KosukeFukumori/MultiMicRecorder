@@ -1,6 +1,7 @@
 import datetime
 import os
 import queue
+import subprocess
 import threading
 import time
 import tkinter
@@ -161,10 +162,18 @@ class GUI:
         )
         self._start_stop_button.grid(row=3, column=0, columnspan=2)
 
+        # Finder表示ボタン
+        self._open_in_finder_button = Button(
+            root,
+            text="保存先フォルダを開く",
+            command=self._on_open_in_finder_button_click,
+        )
+        self._open_in_finder_button.grid(row=4, column=0, columnspan=2)
+
         # ログ表示テキストボックス
         self.log_text_box = Text(state=tkinter.DISABLED)
         self.log_text_box.grid(
-            row=4,
+            row=5,
             column=0,
             columnspan=2,
             sticky=tk.NSEW,
@@ -255,6 +264,10 @@ class GUI:
                 channels=idx_to_channels[device1_index],
             )
             self._recorder2.start_recording()
+
+    def _on_open_in_finder_button_click(self):
+        self._log(f"次のフォルダを開きます: {self._savedir}")
+        subprocess.call(["open", self._savedir])
 
     def _on_stop_recording_button_click(self):
         self._log("録音停止ボタンが押されました")
