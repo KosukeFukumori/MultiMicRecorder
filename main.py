@@ -11,8 +11,10 @@ from dataclasses import dataclass
 from time import sleep
 from tkinter import StringVar, Text, Tk
 from tkinter.ttk import Button, Combobox, LabelFrame
+from typing import Callable
 
 import numpy as np
+import requests
 import sounddevice as sd
 from pydub import AudioSegment
 
@@ -183,7 +185,7 @@ class GUI:
 
         # ウィンドウのリサイズに合わせて index のウィジェットの幅を広げる
         root.grid_columnconfigure(index=1, weight=1)
-        root.grid_rowconfigure(index=4, weight=1)
+        root.grid_rowconfigure(index=5, weight=1)
 
         # デバイスリストを更新
         self._on_device_refresh_button_click()
@@ -203,6 +205,7 @@ class GUI:
         self.log_text_box.insert(
             "end", f"[{datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S')}] {text}\n"
         )
+        self.log_text_box.see("end")
         self.log_text_box.configure(state=tkinter.DISABLED)
 
     def _on_device_refresh_button_click(self):
@@ -284,29 +287,90 @@ class GUI:
 
             self._log("複数の録音を Mix 中です")
             mixed_filename = self._filename1.replace("_1.", ".")
-
-            rec1 = AudioSegment.from_file(self._filename1)
-            rec2 = AudioSegment.from_file(self._filename2)
-
-            # ミキシングとファイル出力
-            output = rec1.overlay(rec2, position=0)
-            output.export(mixed_filename, format="wav")
-
-            self._log(f"Mix 完了しました。保存先: {mixed_filename}")
+            threading.Thread(
+                target=self._mix_files,
+                args=(
+                    self._filename1,
+                    self._filename2,
+                    mixed_filename,
+                    self._on_mix_completed,
+                ),
+            ).start()
 
         self._recorder1 = None
         self._recorder2 = None
+
+    def _mix_files(
+        self, file1, file2, out, on_completed: Callable[[str], None] | None = None
+    ):
+        # ファイル読み込み
+        rec1 = AudioSegment.from_file(file1)
+        rec2 = AudioSegment.from_file(file2)
+
+        # ミキシングとファイル出力
+        output = rec1.overlay(rec2, position=0)
+        output.export(out, format="wav")
+
+        if on_completed is not None:
+            on_completed(out)
+
+    def _on_mix_completed(self, outfile: str):
+        self._log(f"Mix 完了しました。保存先: {outfile}")
 
         # デバイス選択を変更できるようにする
         self._device1_list_combobox.configure(state=tkinter.NORMAL)
         self._device2_list_combobox.configure(state=tkinter.NORMAL)
         self._device_refresh_button.configure(state=tkinter.NORMAL)
-
+        # 録音開始ボタンを有効化
         self._start_stop_button.configure(
             text="録音開始",
             command=self._on_start_recording_button_click,
             state=tkinter.NORMAL,
         )
+
+        threading.Thread(
+            target=self._transcribe,
+            args=(
+                outfile,
+                self._on_transcribe_completed,
+                self._on_transcribe_failed,
+            ),
+        ).start()
+
+    def _transcribe(
+        self,
+        file,
+        on_completed: Callable[[str], None] | None = None,
+        on_failed: Callable[[Exception], None] | None = None,
+    ):
+        self._log("Mix済みファイルの文字起こし中です")
+        params = {
+            "encode": "true",
+            "task": "transcribe",
+            "language": "ja",
+            "vad_filter": "false",
+            "word_timestamps": "false",
+            "output": "vtt",
+        }
+        files = {"audio_file": (file, open(file, "rb"), "audio/wav")}
+        headers = {"accept": "application/json"}
+
+        try:
+            response = requests.post(url, params=params, files=files, headers=headers)
+            out_text_file = os.path.splitext(file)[0] + ".txt"
+            with open(out_text_file, "w") as file:
+                file.write(response.text)
+            if on_completed is not None:
+                on_completed(out_text_file)
+        except Exception as e:
+            if on_failed is not None:
+                on_failed(e)
+
+    def _on_transcribe_completed(self, outfile: str):
+        self._log(f"文字起こしが完了しました: {outfile}")
+
+    def _on_transcribe_failed(self, ex: Exception):
+        self._log(f"文字起こしでエラーが発生しました: {ex}")
 
     def start(self):
         self._root.mainloop()
